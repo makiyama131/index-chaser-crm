@@ -17,22 +17,43 @@ class CustomerController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Customer::query()->with(['user', 'status']); // N+1問題対策
+        $query = Customer::query()->with(['user', 'status']);
 
-        // キーワード検索
+        // --- Comprehensive Search Logic ---
         if ($keyword = $request->keyword) {
-            $query->where('name', 'like', "%{$keyword}%");
+            $query->where(function ($q) use ($keyword) {
+                $q->where('name', 'like', "%{$keyword}%")
+                    ->orWhere('phone', 'like', "%{$keyword}%")
+                    ->orWhere('email', 'like', "%{$keyword}%");
+            });
         }
 
-        // 顧客温度感での絞り込み
-        if ($rank = $request->rank) {
-            $query->where('rank', $rank);
+        // --- Sorting Logic ---
+        $sort = $request->input('sort', 'updated_at_desc'); // Default to newest updated
+        switch ($sort) {
+            case 'updated_at_asc':
+                $query->orderBy('updated_at', 'asc');
+                break;
+            case 'created_at_desc':
+                $query->orderBy('created_at', 'desc');
+                break;
+            case 'created_at_asc':
+                $query->orderBy('created_at', 'asc');
+                break;
+            default: // 'updated_at_desc'
+                $query->orderBy('updated_at', 'desc');
+                break;
         }
 
-        // 担当者自身の顧客のみ表示
-        $customers = $query->where('user_id', Auth::id())->latest()->paginate(20);
+        // Filter by the logged-in user's customers
+        $customers = $query->where('user_id', Auth::id())->paginate(20)->withQueryString();
 
-        return view('customers.index', compact('customers'));
+        // Pass the search and sort values back to the view
+        return view('customers.index', [
+            'customers' => $customers,
+            'keyword' => $keyword,
+            'sort' => $sort,
+        ]);
     }
 
     /**
@@ -154,14 +175,14 @@ class CustomerController extends Controller
     }
 
 
-    
+
 
     public function parseAndStore(Request $request)
     {
         $rawText = $request->input('source_text');
         // ▼▼▼ この一行で、不正な文字コードの問題を解決します ▼▼▼
         $text = mb_convert_encoding($rawText, 'UTF-8', 'UTF-8');
-        
+
 
         // --- データ抽出 ---
         preg_match('/名前\s*(.+)/', $text, $nameMatches);
@@ -187,21 +208,21 @@ class CustomerController extends Controller
         // --- タグの処理 ---
         // 1. ◉ または ◎ で始まる行を全て抽出
         preg_match_all('/[◉◎](.+)/u', $text, $tagLines);
-        
+
         $tagIds = [];
         if (!empty($tagLines[1])) {
             foreach ($tagLines[1] as $tagLine) {
                 // 2. タグの文字列を整形
                 $tagName = trim(preg_replace('/\s+/', ' ', $tagLine));
-                
+
                 // 3. データベースに同じ名前のタグがなければ新規作成、あればそれを使用
                 $tag = Tag::firstOrCreate(['name' => $tagName]);
-                
+
                 // 4. タグのIDを配列に集める
                 $tagIds[] = $tag->id;
             }
         }
-        
+
         // 5. 集めたIDのタグを全て顧客に紐付ける
         if (!empty($tagIds)) {
             $customer->tags()->sync($tagIds);
@@ -209,5 +230,4 @@ class CustomerController extends Controller
 
         return redirect()->route('customers.show', $customer)->with('success', 'テキストから顧客情報を自動登録しました。');
     }
-
 }

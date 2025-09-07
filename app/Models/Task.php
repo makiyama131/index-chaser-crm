@@ -26,6 +26,9 @@ class Task extends Model
         'due_date' => 'datetime',
     ];
 
+    protected $touches = ['customer'];
+
+
     /**
      * Get the customer that this task belongs to.
      */

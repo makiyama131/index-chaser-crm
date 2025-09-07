@@ -16,6 +16,9 @@ class Activity extends Model
         'note',
     ];
 
+    protected $touches = ['customer'];
+
+
     public function customer()
     {
         return $this->belongsTo(Customer::class);

@@ -27,6 +27,9 @@ class Document extends Model
     ];
     // ▲▲▲ END OF PROPERTY ▲▲▲
 
+    protected $touches = ['customer'];
+
+
     /**
      * Get the customer that this document belongs to.
      */

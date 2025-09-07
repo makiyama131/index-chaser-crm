@@ -22,12 +22,13 @@ class StatusSeeder extends Seeder
         // 初期データを定義
         $statuses = [
             ['id' => 1, 'name' => '新規反響', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 2, 'name' => '要追客', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 3, 'name' => '対応中', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 4, 'name' => '来店予約', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 5, 'name' => '申込', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 6, 'name' => '契約完了', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 7, 'name' => '失注', 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 2, 'name' => '初動ライン', 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 3, 'name' => 'ラインラリー', 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 4, 'name' => '打ち合わせ', 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 5, 'name' => '内見', 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 6, 'name' => '申し込み', 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 7, 'name' => '契約', 'created_at' => $now, 'updated_at' => $now], // "契約書" is likely a status, so let's call it "契約"
+            ['id' => 8, 'name' => '失注', 'created_at' => $now, 'updated_at' => $now], // Kept this one
         ];
 
         // データを挿入

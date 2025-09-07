@@ -46,6 +46,11 @@ Route::middleware('auth')->group(function () {
     Route::get('documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
     Route::get('documents/{document}/edit', [DocumentController::class, 'edit'])->name('documents.edit');
     Route::patch('documents/{document}', [DocumentController::class, 'update'])->name('documents.update');
+
+
+    Route::get('/phpinfo', function () {
+    phpinfo();
+});
 });
 
 require __DIR__ . '/auth.php';
