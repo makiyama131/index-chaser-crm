@@ -3,11 +3,13 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL; // use文を追加
+
 
 class AppServiceProvider extends ServiceProvider
 {
 
-   
+
     /**
      * Register any application services.
      */
@@ -21,6 +23,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        URL::forceScheme('https'); // bootメソッドの中にこれを追加
     }
 }
