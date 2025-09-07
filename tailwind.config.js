@@ -1,12 +1,15 @@
-import defaultTheme from 'tailwindcss/defaultTheme';
+// [修正] typography を import に変更
 import forms from '@tailwindcss/forms';
+import typography from '@tailwindcss/typography';
 
 /** @type {import('tailwindcss').Config} */
 export default {
     content: [
-        "./resources/**/*.blade.php",
-        "./resources/**/*.js",
-        "./resources/**/*.vue",
+        './resources/**/*.blade.php',
+        './resources/**/*.js',
+        './resources/**/*.vue',
+        // [追加] Laravelのページネーション用スタイルをスキャン対象に追加
+        './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
     ],
     theme: {
         extend: {
@@ -114,11 +117,11 @@ export default {
         },
     },
     plugins: [
-        require('@tailwindcss/forms'),
-        require('@tailwindcss/typography'),
+        // [修正] requireではなくimportした変数を使用
+        forms,
+        typography,
         function({ addUtilities }) {
             const newUtilities = {
-                // ▼▼▼ ここから追加 ▼▼▼
                 '.btn-primary': {
                     '@apply bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-900 shadow-sm': {},
                     '&:disabled': {
