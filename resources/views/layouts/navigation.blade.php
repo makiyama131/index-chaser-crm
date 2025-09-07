@@ -13,7 +13,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
                         </div>
-                        <span class="text-lg font-bold text-neutral-800 hidden sm:block">CRM System</span>
+                        <span class="text-lg font-bold text-neutral-800 hidden sm:block">【株式会社index】チェイサー|Chaser</span>
                     </a>
                 </div>
 
