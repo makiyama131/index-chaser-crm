@@ -89,7 +89,8 @@
                                         onchange="this.form.submit()">
                                         @foreach ($statuses as $status)
                                             <option value="{{ $status->id }}" @selected($customer->status_id == $status->id)>
-                                                {{ $status->name }}</option>
+                                                {{ $status->name }}
+                                            </option>
                                         @endforeach
                                     </select>
                                 </form>
@@ -103,7 +104,8 @@
                             <div>
                                 <p class="text-xs text-neutral-500">メールアドレス</p>
                                 <p class="text-sm font-medium text-neutral-800 break-all">
-                                    {{ $customer->email ?? '未登録' }}</p>
+                                    {{ $customer->email ?? '未登録' }}
+                                </p>
                             </div>
                             <div>
                                 <p class="text-xs text-neutral-500">電話番号</p>
@@ -161,10 +163,12 @@
                                         <div class="flex justify-between items-center mb-1">
                                             <p
                                                 class="text-xs font-semibold text-primary-700 bg-primary-100 px-2 py-0.5 rounded-full">
-                                                {{ $activity->type }}</p>
+                                                {{ $activity->type }}
+                                            </p>
                                             <p class="text-xs text-neutral-500">
                                                 {{ $activity->created_at->format('Y/m/d H:i') }} by
-                                                {{ $activity->user->name }}</p>
+                                                {{ $activity->user->name }}
+                                            </p>
                                         </div>
                                         <p class="text-sm text-neutral-700 whitespace-pre-wrap">{{ $activity->note }}</p>
                                     </div>
@@ -215,7 +219,8 @@
                                         <div class="flex-grow">
                                             <p
                                                 class="text-sm font-medium @if($task->status == '完了') text-neutral-500 line-through @else text-neutral-800 @endif">
-                                                {{ $task->title }}</p>
+                                                {{ $task->title }}
+                                            </p>
                                             @if ($task->due_date)
                                                 <p
                                                     class="text-xs @if($task->status != '完了' && $task->due_date->isPast()) text-danger-600 font-semibold @else text-neutral-500 @endif">
@@ -233,8 +238,18 @@
 
                         {{-- Document Manager --}}
                         <div class="bg-white p-6 rounded-xl shadow-soft border border-neutral-200/50">
-                            <h3 class="text-lg font-semibold text-neutral-800 mb-4">書類管理</h3>
-                            <div class="bg-neutral-50 p-4 rounded-lg mb-6 border border-neutral-200">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">書類管理</h3>
+
+                            <div x-data="{ isDragging: false }"
+                                class="bg-neutral-50 p-4 rounded-lg mb-6 border-2 border-dashed border-neutral-200 hover:border-primary-500 transition-all duration-300"
+                                :class="{ 'border-primary-500 bg-primary-50 ring-4 ring-primary-500/10': isDragging }"
+                                @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false"
+                                @drop.prevent="isDragging = false; $refs.fileInput.files = $event.dataTransfer.files">
+                                <div x-show="isDragging" x-transition
+                                    class="pointer-events-none absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+                                    <span class="text-xl font-semibold text-primary-600">ここにファイルをドロップ</span>
+                                </div>
+
                                 <form action="{{ route('documents.store') }}" method="POST"
                                     enctype="multipart/form-data" class="space-y-3">
                                     @csrf
@@ -252,24 +267,24 @@
                                             <option>身分証</option>
                                             <option>その他</option>
                                         </select>
-                                        <input type="file" name="document_file"
+                                        {{-- x-ref allows Alpine.js to find this input --}}
+                                        <input type="file" name="document_file" x-ref="fileInput"
                                             class="block w-full text-sm text-neutral-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
                                             required>
                                     </div>
                                     <button type="submit"
-                                        class="btn-base w-full justify-center bg-primary-600 hover:bg-primary-700 text-white shadow-sm">アップロード</button>
+                                        class="w-full justify-center inline-flex items-center px-4 py-2 bg-primary-600 border border-transparent rounded-md font-semibold text-white hover:bg-primary-700">アップロード</button>
                                 </form>
                             </div>
+
                             <div class="space-y-3 max-h-80 overflow-y-auto pr-2">
                                 @forelse ($customer->documents->sortByDesc('created_at') as $document)
                                     <div
                                         class="p-3 rounded-lg border border-neutral-200 hover:bg-neutral-50 hover:border-neutral-300 transition-all duration-200">
                                         <div class="flex items-start justify-between gap-3">
-                                            {{-- Icon & Info --}}
                                             <div class="flex items-center gap-3">
                                                 <div
                                                     class="flex-shrink-0 w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center">
-                                                    {{-- Heroicon: document-text --}}
                                                     <svg class="w-6 h-6 text-neutral-500" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -289,8 +304,18 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            {{-- Actions --}}
-                                            <div class="flex items-center gap-2 flex-shrink-0">
+                                            <div class="flex items-center gap-3 flex-shrink-0">
+                                                {{-- Edit Button Added --}}
+                                                <a href="{{ route('documents.edit', $document) }}" title="編集"
+                                                    class="text-neutral-400 hover:text-primary-600">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536l12.232-12.232z">
+                                                        </path>
+                                                    </svg>
+                                                </a>
                                                 <a href="{{ route('documents.download', $document) }}" title="ダウンロード"
                                                     class="text-neutral-400 hover:text-primary-600">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor"
@@ -305,7 +330,7 @@
                                                     onsubmit="return confirm('本当にこの書類を削除しますか？');">
                                                     @csrf @method('DELETE')
                                                     <button type="submit" title="削除"
-                                                        class="text-neutral-400 hover:text-danger-600">
+                                                        class="text-neutral-400 hover:text-red-600">
                                                         <svg class="w-5 h-5" fill="none" stroke="currentColor"
                                                             viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                             <path stroke-linecap="round" stroke-linejoin="round"
