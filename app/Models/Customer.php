@@ -9,6 +9,26 @@ class Customer extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'phone',
+        'rank',
+        'status_id', // <-- ADD THIS LINE
+        'icon_emoji',
+        'characteristic_memo',
+        'birth_date',
+        'lead_source_detail',
+        'reason_for_moving',
+        'agent_request',
+        'user_id',
+    ];
+
     protected $casts = [
         'birth_date' => 'date',
         'friend_added_date' => 'date',

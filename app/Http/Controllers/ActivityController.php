@@ -5,25 +5,26 @@ namespace App\Http\Controllers;
 use App\Models\Activity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Customer; // Add this
+
 
 class ActivityController extends Controller
 {
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'type' => 'required|string|max:50',
             'note' => 'required|string',
         ]);
 
         Activity::create([
-            'customer_id' => $request->customer_id,
+            'customer_id' => $validated['customer_id'],
             'user_id' => Auth::id(),
-            'type' => $request->type,
-            'note' => $request->note,
+            'type' => $validated['type'],
+            'note' => $validated['note'],
         ]);
 
-        return redirect()->route('customers.show', $request->customer_id)
-                         ->with('success', '活動記録を追加しました。');
+        return back()->with('success', '活動記録を追加しました。');
     }
 }

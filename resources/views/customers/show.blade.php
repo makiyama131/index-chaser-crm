@@ -139,6 +139,8 @@
                             <form action="{{ route('activities.store') }}" method="POST" class="space-y-3 mb-6">
                                 @csrf
                                 <input type="hidden" name="customer_id" value="{{ $customer->id }}">
+                                <input type="hidden" name="redirect_to" value="{{ route('customers.show', $customer) }}">
+
                                 <textarea name="note" rows="3"
                                     class="w-full rounded-lg border-neutral-300 focus:border-primary-500 focus:ring-primary-500 shadow-sm"
                                     placeholder="対応内容を入力..." required></textarea>

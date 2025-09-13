@@ -15,38 +15,31 @@ class DashboardController extends Controller
     public function index()
     {
         $user = Auth::user();
-        // Get overdue tasks (due date is in the past and status is not '完了')
-        $overdue_tasks = Task::where('user_id', $user->id)
-            ->where('status', '!=', '完了')
-            ->whereNotNull('due_date')
-            ->where('due_date', '<', Carbon::now())
-            ->with('customer')
-            ->get();
+        $today = Carbon::today();
 
-        // 1. Get all incomplete tasks for the logged-in user
-        $incomplete_tasks = Task::where('user_id', $user->id)
-            ->where('status', '!=', '完了')
-            ->with('customer') // Eager load customer info
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $baseTaskQuery = fn() => Task::where('user_id', $user->id)->where('status', '!=', '完了')->with('customer');
 
-        // 2. Get customers who haven't been updated in 14 days
-        $long_term_untouched_customers = Customer::where('user_id', $user->id)
-            ->where('updated_at', '<', Carbon::now()->subDays(14))
-            ->get();
+        // Data for Task Agenda
+        $overdue_tasks = $baseTaskQuery()->whereNotNull('due_date')->where('due_date', '<', $today)->orderBy('due_date', 'asc')->get();
+        $today_tasks = $baseTaskQuery()->whereDate('due_date', $today)->orderBy('due_date', 'asc')->get();
+        $this_week_tasks = $baseTaskQuery()->whereBetween('due_date', [Carbon::tomorrow()->startOfDay(), $today->copy()->endOfWeek()])->orderBy('due_date', 'asc')->get();
+        $future_tasks = $baseTaskQuery()->where('due_date', '>', $today->copy()->endOfWeek())->orderBy('due_date', 'asc')->get();
+        $no_due_date_tasks = $baseTaskQuery()->whereNull('due_date')->orderBy('created_at', 'desc')->get();
 
-        // 3. Get customer counts grouped by status
-        $status_counts = Customer::where('user_id', $user->id)
-            ->select('status_id', DB::raw('count(*) as count'))
-            ->groupBy('status_id')
-            ->with('status') // Eager load status names
-            ->get();
+        // Data for Sidebar & Summary (This adds the missing variables)
+        $long_term_untouched_customers = Customer::where('user_id', $user->id)->where('updated_at', '<', Carbon::now()->subDays(14))->get();
+        $status_counts = Customer::where('user_id', $user->id)->select('status_id', DB::raw('count(*) as count'))->groupBy('status_id')->with('status')->get();
+        $incomplete_tasks = Task::where('user_id', $user->id)->where('status', '!=', '完了')->get();
 
         return view('dashboard', [
-            'overdue_tasks' => $overdue_tasks, // Pass new data
-            'incomplete_tasks' => $incomplete_tasks,
+            'overdue_tasks' => $overdue_tasks,
+            'today_tasks' => $today_tasks,
+            'this_week_tasks' => $this_week_tasks,
+            'future_tasks' => $future_tasks,
+            'no_due_date_tasks' => $no_due_date_tasks,
             'long_term_untouched_customers' => $long_term_untouched_customers,
             'status_counts' => $status_counts,
+            'incomplete_tasks' => $incomplete_tasks, // Pass the missing variable
         ]);
     }
 }

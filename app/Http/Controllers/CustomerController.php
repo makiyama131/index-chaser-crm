@@ -17,40 +17,65 @@ class CustomerController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Customer::query()->with(['user', 'status']);
+        // Eager load relationships that are always needed
+        $query = Customer::with(['user', 'status']);
 
         // --- Comprehensive Search Logic ---
         if ($keyword = $request->keyword) {
             $query->where(function ($q) use ($keyword) {
                 $q->where('name', 'like', "%{$keyword}%")
                     ->orWhere('phone', 'like', "%{$keyword}%")
-                    ->orWhere('email', 'like', "%{$keyword}%");
+                    ->orWhere('email', 'like', "%{$keyword}%")
+                    ->orWhere('characteristic_memo', 'like', "%{$keyword}%")
+                    ->orWhere('icon_emoji', 'like', "%{$keyword}%");
             });
         }
 
-        // --- Sorting Logic ---
-        $sort = $request->input('sort', 'updated_at_desc'); // Default to newest updated
-        switch ($sort) {
-            case 'updated_at_asc':
-                $query->orderBy('updated_at', 'asc');
-                break;
-            case 'created_at_desc':
-                $query->orderBy('created_at', 'desc');
-                break;
-            case 'created_at_asc':
-                $query->orderBy('created_at', 'asc');
-                break;
-            default: // 'updated_at_desc'
-                $query->orderBy('updated_at', 'desc');
-                break;
+        // --- Expanded Sorting Logic ---
+        $sort = $request->input('sort', 'updated_at_desc');
+
+        // For status sorting, we need to join the tables
+        if (str_starts_with($sort, 'status_')) {
+            $direction = str_ends_with($sort, 'asc') ? 'asc' : 'desc';
+            $query->join('statuses', 'customers.status_id', '=', 'statuses.id')
+                ->orderBy('statuses.name', $direction)
+                ->select('customers.*'); // IMPORTANT: Select only customer columns to avoid conflicts
+        } else {
+            // For other sorting options
+            switch ($sort) {
+                case 'updated_at_asc':
+                    $query->orderBy('updated_at', 'asc');
+                    break;
+                case 'created_at_desc':
+                    $query->orderBy('created_at', 'desc');
+                    break;
+                case 'created_at_asc':
+                    $query->orderBy('created_at', 'asc');
+                    break;
+                case 'rank_asc':
+                    $query->orderBy('rank', 'asc');
+                    break;
+                case 'rank_desc':
+                    $query->orderBy('rank', 'desc');
+                    break;
+                case 'name_asc':
+                    $query->orderBy('name', 'asc');
+                    break;
+                case 'name_desc':
+                    $query->orderBy('name', 'desc');
+                    break;
+                default: // 'updated_at_desc'
+                    $query->orderBy('updated_at', 'desc');
+                    break;
+            }
         }
 
-        // Filter by the logged-in user's customers
         $customers = $query->where('user_id', Auth::id())->paginate(20)->withQueryString();
+        $statuses = Status::all();
 
-        // Pass the search and sort values back to the view
         return view('customers.index', [
             'customers' => $customers,
+            'statuses' => $statuses,
             'keyword' => $keyword,
             'sort' => $sort,
         ]);
@@ -75,6 +100,8 @@ class CustomerController extends Controller
             'email' => 'nullable|email|max:255|unique:customers,email',
             'phone' => 'nullable|string|max:20',
             'rank' => 'required|in:A,B,C',
+            'icon_emoji' => 'nullable|string|max:10',      // <-- Add this
+            'characteristic_memo' => 'nullable|string|max:255', // <-- Add this
         ]);
 
         // 2. データベースへの保存処理
@@ -85,6 +112,9 @@ class CustomerController extends Controller
         $customer->rank = $validated['rank'];
         $customer->user_id = Auth::id(); // ログイン中の担当者のIDをセット
         // status_idはマイグレーションでデフォルト値(1)が設定されているので、ここでは不要
+
+        $customer->status_id = 1; // Set default status to "新規反響" (New Inquiry)
+
 
         $customer->save(); // 保存
 
@@ -97,9 +127,32 @@ class CustomerController extends Controller
      */
     public function show(Customer $customer)
     {
-        // Get a list of all statuses and pass it to the view
         $statuses = Status::all();
-        return view('customers.show', compact('customer', 'statuses'));
+
+        // --- Data for Timeline ---
+        // Get past events (all activities, sorted newest first)
+        $past_events = $customer->activities()->orderBy('created_at', 'desc')->get();
+
+        // Get future events (incomplete tasks with a due date, sorted oldest first)
+        $future_events = $customer->tasks()
+            ->where('status', '!=', '完了')
+            ->whereNotNull('due_date')
+            ->orderBy('due_date', 'asc')
+            ->get();
+
+        // Get incomplete tasks without a due date
+        $undated_tasks = $customer->tasks()
+            ->where('status', '!=', '完了')
+            ->whereNull('due_date')
+            ->get();
+
+        return view('customers.show', compact(
+            'customer',
+            'statuses',
+            'past_events',
+            'future_events',
+            'undated_tasks'
+        ));
     }
 
     /**
@@ -180,54 +233,71 @@ class CustomerController extends Controller
     public function parseAndStore(Request $request)
     {
         $rawText = $request->input('source_text');
-        // ▼▼▼ この一行で、不正な文字コードの問題を解決します ▼▼▼
         $text = mb_convert_encoding($rawText, 'UTF-8', 'UTF-8');
 
+        // --- Data Extraction ---
+        preg_match('/名前\s*(.+)/u', $text, $nameMatches);
+        preg_match('/電話番号\s*(\d{3,4}-\d{4}-\d{4})/u', $text, $phoneMatches);
+        preg_match('/生年月日\s*([0-9\-]+)/u', $text, $birthDateMatches);
+        preg_match('/流入経路\s*(.+)/u', $text, $leadSourceMatches);
+        preg_match('/転居理由\s*(.+)/u', $text, $reasonMatches);
+        preg_match('/担当者へのお願い\s*([\s\S]*?)(?=具体的なお引越し時期|全体管理|$)/u', $text, $requestMatches);
 
-        // --- データ抽出 ---
-        preg_match('/名前\s*(.+)/', $text, $nameMatches);
-        preg_match('/電話番号\s*(\d{3,4}-\d{4}-\d{4})/', $text, $phoneMatches);
-        preg_match('/生年月日\s*([0-9\-]+)/', $text, $birthDateMatches);
-        preg_match('/流入経路\s*(.+)/', $text, $leadSourceMatches);
-        preg_match('/転居理由\s*(.+)/', $text, $reasonMatches);
-        // 「担当者へのお願い」から次のセクション（またはテキストの終わり）までを抽出
-        preg_match('/担当者へのお願い\s*([\s\S]*?)(?=具体的なお引越し時期|全体管理|$)/', $text, $requestMatches);
+        $phone = $phoneMatches[1] ?? null;
 
-        // --- データベースへの保存 ---
-        $customer = new Customer();
-        $customer->name = trim($nameMatches[1] ?? null);
-        $customer->phone = $phoneMatches[1] ?? null;
-        $customer->birth_date = $birthDateMatches[1] ?? null;
-        $customer->lead_source_detail = trim($leadSourceMatches[1] ?? null);
-        $customer->reason_for_moving = trim($reasonMatches[1] ?? null);
-        $customer->agent_request = trim($requestMatches[1] ?? null);
-        $customer->status_id = 1; // 新規反響
-        $customer->user_id = Auth::id();
-        $customer->save();
+        // --- Database Save (using updateOrCreate) ---
+        $customer = Customer::updateOrCreate(
+            ['phone' => $phone], // Search for a customer with this phone number
+            [
+                // Update or Create with this information
+                'name' => trim($nameMatches[1] ?? null),
+                'birth_date' => $birthDateMatches[1] ?? null,
+                'lead_source_detail' => trim($leadSourceMatches[1] ?? null),
+                'reason_for_moving' => trim($reasonMatches[1] ?? null),
+                'agent_request' => trim($requestMatches[1] ?? null),
+                'status_id' => 1, // Always set the status to "New Inquiry"
+                'user_id' => null, // Always start as unassigned
+                'rank' => 'C',
+            ]
+        );
 
-        // --- タグの処理 ---
-        // 1. ◉ または ◎ で始まる行を全て抽出
+
+
+        // --- Tag Processing ---
         preg_match_all('/[◉◎](.+)/u', $text, $tagLines);
 
         $tagIds = [];
         if (!empty($tagLines[1])) {
             foreach ($tagLines[1] as $tagLine) {
-                // 2. タグの文字列を整形
                 $tagName = trim(preg_replace('/\s+/', ' ', $tagLine));
-
-                // 3. データベースに同じ名前のタグがなければ新規作成、あればそれを使用
-                $tag = Tag::firstOrCreate(['name' => $tagName]);
-
-                // 4. タグのIDを配列に集める
-                $tagIds[] = $tag->id;
+                if (!empty($tagName)) {
+                    $tag = Tag::firstOrCreate(['name' => $tagName]);
+                    $tagIds[] = $tag->id;
+                }
             }
         }
 
-        // 5. 集めたIDのタグを全て顧客に紐付ける
         if (!empty($tagIds)) {
             $customer->tags()->sync($tagIds);
         }
 
-        return redirect()->route('customers.show', $customer)->with('success', 'テキストから顧客情報を自動登録しました。');
+        return redirect()->route('customers.show', $customer)->with('success', 'テキストから顧客情報を登録/更新しました。');
+    }
+
+    public function updateCharacteristicMemo(Request $request, Customer $customer)
+    {
+        // Simple authorization check
+        if ($customer->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'icon_emoji' => 'nullable|string|max:10',
+            'characteristic_memo' => 'nullable|string|max:255',
+        ]);
+
+        $customer->update($validated);
+
+        return back()->with('success', '顧客情報を更新しました。');
     }
 }

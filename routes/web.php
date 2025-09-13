@@ -7,6 +7,8 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\ActivityController; // 先頭に追加
 use App\Http\Controllers\DocumentController; // 先頭に追加
+use App\Http\Controllers\LeadController; // Add this at the top
+
 
 
 
@@ -36,6 +38,8 @@ Route::middleware('auth')->group(function () {
 
     Route::patch('customers/{customer}/update-rank', [CustomerController::class, 'updateRank'])->name('customers.updateRank');
     Route::patch('customers/{customer}/update-status', [CustomerController::class, 'updateStatus'])->name('customers.updateStatus');
+    Route::patch('customers/{customer}/update-memo', [CustomerController::class, 'updateCharacteristicMemo'])->name('customers.updateMemo');
+
 
     Route::post('tasks', [TaskController::class, 'store'])->name('tasks.store')->middleware('auth');
     Route::post('activities', [ActivityController::class, 'store'])->name('activities.store')->middleware('auth');
@@ -46,6 +50,11 @@ Route::middleware('auth')->group(function () {
     Route::get('documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
     Route::get('documents/{document}/edit', [DocumentController::class, 'edit'])->name('documents.edit');
     Route::patch('documents/{document}', [DocumentController::class, 'update'])->name('documents.update');
+
+    Route::get('leads', [LeadController::class, 'index'])->name('leads.index');
+    Route::patch('leads/{customer}/assign', [LeadController::class, 'assign'])->name('leads.assign');
+
+
 
 
     Route::get('/phpinfo', function () {
